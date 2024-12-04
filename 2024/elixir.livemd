@@ -650,3 +650,283 @@ day_3_part_2_puzzle_output = Day3.part_2(day_3_part_1_puzzle_input)
 ```
 104245808
 ```
+
+## Day 4
+
+### Part 1: Ceres Search
+
+"Looks like the Chief's not here. Next!" One of The Historians pulls out a device and pushes the only button on it. After a brief flash, you recognize the interior of the Ceres monitoring station!
+
+As the search for the Chief continues, a small Elf who lives on the station tugs on your shirt; she'd like to know if you could help her with her **word search** (your puzzle input). She only has to find one word: `XMAS`.
+
+This word search allows words to be horizontal, vertical, diagonal, written backwards, or even overlapping other words. It's a little unusual, though, as you don't merely need to find one instance of `XMAS` - you need to find **all of them**. Here are a few ways `XMAS` might appear, where irrelevant characters have been replaced with `.`:
+
+```
+..X...
+.SAMX.
+.A..A.
+XMAS.S
+.X....
+```
+
+The actual word search will be full of letters instead. For example:
+
+```
+MMMSXXMASM
+MSAMXMSMSA
+AMXSXMAAMM
+MSAMASMSMX
+XMASAMXAMM
+XXAMMXXAMA
+SMSMSASXSS
+SAXAMASAAA
+MAMMMXMMMM
+MXMXAXMASX
+```
+
+In this word search, `XMAS` occurs a total of `18` times; here's the same word search again, but where letters not involved in any `XMAS` have been replaced with `.`:
+
+```
+....XXMAS.
+.SAMXMS...
+...S..A...
+..A.A.MS.X
+XMASAMX.MM
+X.....XA.A
+S.S.S.S.SS
+.A.A.A.A.A
+..M.M.M.MM
+.X.X.XMASX
+```
+
+Take a look at the little Elf's word search. **How many times does XMAS appear?**
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Day4 do
+  @forward ["X", "M", "A", "S"]
+  @backward Enum.reverse(@forward)
+
+  @targets ["SAM", "MAS"]
+  @target_length 3
+  @target_step 1
+  @target_action :discard
+
+  def part_1(input) do
+    grid = make_grid(input)
+    reverse_grid = Enum.reverse(grid)
+
+    [
+      count_in_set(grid, @forward),
+      count_in_set(grid, @backward),
+      count_verticals(grid, @forward),
+      count_verticals(grid, @backward),
+      count_diagonals(grid, @forward),
+      count_diagonals(grid, @backward),
+      count_diagonals(reverse_grid, @forward),
+      count_diagonals(reverse_grid, @backward),
+    ]
+    |> Enum.sum()
+  end
+
+  def make_grid(input),
+    do:
+      input
+      |> String.split("\n", trim: true)
+      |> Enum.map(&String.split(&1, "", trim: true))
+
+  defp count_in_set(set, target),
+    do:
+      set
+      |> Enum.map(&count_in_line(&1, target))
+      |> Enum.sum()
+
+  defp count_verticals(grid, target),
+    do:
+      grid
+      |> get_verticals()
+      |> count_in_set(target)
+
+  defp count_diagonals(grid, target),
+    do:
+      grid
+      |> get_diagonals()
+      |> count_in_set(target)
+
+  defp count_in_line(line, target),
+    do: 
+      line
+      |> Enum.join()
+      |> String.split(Enum.join(target))
+      |> length()
+      |> Kernel.-(1)
+
+  def get_verticals(grid),
+    do:
+      0..(length(grid) - 1)
+      |> Enum.map(fn i -> Enum.map(grid, fn line -> Enum.at(line, i) end) end)
+
+  def get_diagonals(grid),
+    do:
+      1..((length(grid) * 2) - 1)
+      |> Enum.map(&get_diagonal_line(&1, grid))
+      |> Enum.map(fn line -> Enum.map(line, &get_grid_point(&1, grid)) end)
+
+  defp get_diagonal_line(index, grid) do
+    clamp = length(grid)
+    
+    size = cond do
+      index <= clamp -> index
+      index > clamp -> clamp + (clamp - index)
+    end
+
+    1..size
+    |> Enum.map(&make_cords(index, &1, clamp))
+  end
+
+  defp make_cords(diagonal_index, line_index, clamp)
+    when diagonal_index <= clamp,
+    do: {line_index - 1, diagonal_index - line_index}
+
+  defp make_cords(diagonal_index, line_index, clamp)
+    when diagonal_index > clamp,
+    do: {diagonal_index - clamp + line_index - 1, clamp - line_index}
+
+  defp get_grid_point({x, y}, grid),
+    do: grid |> Enum.at(y) |> Enum.at(x)
+
+  def part_2(input),
+    do:
+      input
+      |> make_grid()
+      |> subgrid(@target_length, @target_step, @target_action)
+      |> Enum.map(&get_x/1)
+      |> Enum.map(fn [x, y] -> x in @targets && y in @targets end)
+      |> Enum.filter(fn res -> res end)
+      |> length()
+
+  def subgrid(grid, size, step, action),
+    do:
+      grid
+      |> Enum.chunk_every(size, step, action)
+      |> Enum.map(fn chunk ->
+        0..((chunk |> hd() |> length()) - 1)
+        |> Enum.chunk_every(size, step, action)
+        |> Enum.map(fn grid_indexes ->
+          chunk
+          |> Enum.map(fn row ->
+            Enum.map(grid_indexes, fn i -> Enum.at(row, i) end)
+          end)
+        end)
+      end)
+      |> Enum.reduce([], fn set, acc -> acc ++ set end)
+
+  defp get_x([[s1, _, s3],[_,s5,_],[s7,_,s9]]),
+    do: ["#{s1}#{s5}#{s9}", "#{s3}#{s5}#{s7}"]
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, Day4, <<70, 79, 82, 49, 0, 0, 30, ...>>, {:get_x, 1}}
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+day_4_part_1_test_input = """
+MMMSXXMASM
+MSAMXMSMSA
+AMXSXMAAMM
+MSAMASMSMX
+XMASAMXAMM
+XXAMMXXAMA
+SMSMSASXSS
+SAXAMASAAA
+MAMMMXMMMM
+MXMXAXMASX
+"""
+day_4_part_1_test_answer = 18
+day_4_part_1_test_output = Day4.part_1(day_4_part_1_test_input)
+day_4_part_1_test_answer == day_4_part_1_test_output
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+true
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+day_4_part_1_puzzle_input = Helpers.get_input(4, 1)
+day_4_part_1_puzzle_output = Day4.part_1(day_4_part_1_puzzle_input)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+2397
+```
+
+### Part Two
+
+The Elf looks quizzically at you. Did you misunderstand the assignment?
+
+Looking for the instructions, you flip over the word search to find that this isn't actually an `XMAS` puzzle; it's an `X-MAS` puzzle in which you're supposed to find two `MAS` in the shape of an `X`. One way to achieve that is like this:
+
+```
+M.S
+.A.
+M.S
+```
+
+Irrelevant characters have again been replaced with `.` in the above diagram. Within the `X`, each MAS can be written forwards or backwards.
+
+Here's the same example from before, but this time all of the `X-MAS`es have been kept instead:
+
+```
+.M.S......
+..A..MSMS.
+.M.S.MAA..
+..A.ASMSM.
+.M.S.M....
+..........
+S.S.S.S.S.
+.A.A.A.A..
+M.M.M.M.M.
+..........
+```
+
+In this example, an `X-MAS` appears `9` times.
+
+Flip the word search from the instructions back over to the word search side and try again. **How many times does an `X-MAS` appear?**
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+day_4_part_2_test_answer = 9
+day_4_part_2_test_output = Day4.part_2(day_4_part_1_test_input)
+day_4_part_2_test_answer == day_4_part_2_test_output
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+true
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Day4.part_2(day_4_part_1_puzzle_input) 
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+1824
+```
